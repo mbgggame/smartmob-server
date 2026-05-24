@@ -302,13 +302,17 @@ app.post('/api/v1/motorista/cadastrar', async (req, res) => {
         nome: nomeMotorista, 
         celular, 
         email, 
-        cpf: cpf || `${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}-${Math.floor(Math.random() * 90 + 10)}`, // Dummy CPF único para testes
+        cpf: cpf || null, 
         marca: marcaVeiculo, 
         modelo: modeloVeiculo, 
         ano_carro, 
         placa_carro, 
         cor_carro, 
-        versao_termo_aceito: versao_termo || termosData.versao 
+        tipo_motor: tipo_motor || 'combustao', 
+        versao_termo_aceito: versao_termo || termosData.versao, 
+        data_nascimento: req.body.data_nascimento || null, 
+        odometro_atual: req.body.odometro_atual || null, 
+        data_ultima_revisao: req.body.data_ultima_revisao || null 
       }]) 
       .select() 
       .single(); 
