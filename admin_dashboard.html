@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart – Torre de Controle Operacional</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --roxo: #7c3aed; --roxo-light: #a855f7; --roxo-dark: #4c1d95;
+    --bg: #080810; --bg2: #0f0f1e; --bg3: #161628;
+    --border: rgba(124,58,237,0.18); --border2: rgba(124,58,237,0.35);
+    --text: #f0eeff; --muted: #8b85a8;
+    --green: #10b981; --red: #ef4444; --amber: #f59e0b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+  /* SIDEBAR */
+  .sidebar {
+    position: fixed; top: 0; left: 0; width: 220px; height: 100vh;
+    background: var(--bg2); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; z-index: 100; padding: 1.5rem 1rem;
+  }
+  .logo { font-size: 1.5rem; font-weight: 800; color: var(--roxo-light); letter-spacing: -0.02em; margin-bottom: 0.2rem; }
+  .logo-sub { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 2rem; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 0.6rem 0.8rem;
+    border-radius: 8px; font-size: 0.85rem; color: var(--muted); cursor: pointer;
+    transition: all 0.15s; margin-bottom: 0.25rem; border: none; background: none;
+    width: 100%; text-align: left; font-family: 'Syne', sans-serif;
+  }
+  .nav-item:hover { color: var(--text); background: var(--bg3); }
+  .nav-item.active { color: var(--roxo-light); background: rgba(124,58,237,0.12); }
+  .sidebar-footer { margin-top: auto; font-size: 0.7rem; color: var(--muted); line-height: 1.6; }
+
+  /* MAIN */
+  .main { margin-left: 220px; padding: 2rem; min-height: 100vh; }
+
+  /* TOPBAR */
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+  .topbar-title { font-size: 1.4rem; font-weight: 700; }
+  .topbar-right { display: flex; align-items: center; gap: 1rem; }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px; padding: 0.4rem 0.9rem;
+    border-radius: 999px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3);
+    font-size: 0.78rem; color: var(--green); font-weight: 600;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* FILTROS */
+  .filtros { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .filtro-btn {
+    padding: 0.4rem 1rem; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg2); color: var(--muted); font-size: 0.82rem; cursor: pointer;
+    font-family: 'Syne', sans-serif; transition: all 0.15s;
+  }
+  .filtro-btn:hover { border-color: var(--border2); color: var(--text); }
+  .filtro-btn.active { background: var(--roxo); border-color: var(--roxo); color: #fff; }
+  .busca-input {
+    padding: 0.4rem 1rem; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg2); color: var(--text); font-size: 0.82rem;
+    font-family: 'Syne', sans-serif; width: 240px; outline: none; transition: border-color 0.15s;
+  }
+  .busca-input:focus { border-color: var(--border2); }
+  .busca-input::placeholder { color: var(--muted); }
+  .date-inputs { display: none; align-items: center; gap: 8px; }
+  .date-inputs input { padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-family: 'Syne', sans-serif; font-size: 0.82rem; outline: none; }
+
+  /* KPI GRID */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .kpi-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem;
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--roxo); }
+  .kpi-card.verde::before { background: var(--green); }
+  .kpi-card.amber::before { background: var(--amber); }
+  .kpi-card.red::before { background: var(--red); }
+  .kpi-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+  .kpi-valor { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em; }
+  .kpi-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.25rem; }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* CHARTS */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+  .chart-card.wide { grid-column: 1 / -1; }
+  .chart-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 1.2rem; }
+  .chart-legend { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* TABELA */
+  .tabela-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  thead th {
+    text-align: left; padding: 0.6rem 1rem;
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid rgba(124,58,237,0.08); transition: background 0.1s; }
+  tbody tr:hover { background: var(--bg3); }
+  tbody td { padding: 0.7rem 1rem; vertical-align: middle; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .badge-roxo { background: rgba(124,58,237,0.2); color: var(--roxo-light); }
+  .badge-green { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge-amber { background: rgba(245,158,11,0.15); color: var(--amber); }
+  .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* RANKING */
+  .ranking-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0.6rem 0.8rem; border-radius: 8px; background: var(--bg3); margin-bottom: 6px;
+  }
+  .ranking-pos { font-size: 0.75rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; min-width: 24px; }
+  .ranking-nome { flex: 1; font-size: 0.85rem; }
+  .ranking-km { font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; color: var(--roxo-light); }
+
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* HASH */
+  .hash-text { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--muted); word-break: break-all; }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 1rem; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .chart-card.wide { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">Smart</div>
+  <div class="logo-sub">Torre de Controle</div>
+  <button class="nav-item active" onclick="setView('overview', this)">📊 Visão Geral</button>
+  <button class="nav-item" onclick="setView('motoristas', this)">🚗 Motoristas</button>
+  <button class="nav-item" onclick="setView('corridas', this)">🛣️ Corridas</button>
+  <button class="nav-item" onclick="setView('auditoria', this)">🔐 Auditoria LGPD</button>
+  <div class="sidebar-footer">
+    ELVIVA GROUP LTDA<br>CNPJ: 62.444.354/0001-82<br><br>
+    <span id="ws-status" style="color:var(--muted)">⬤ Conectando...</span>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="view-title">Visão Geral</div>
+    <div class="topbar-right">
+      <div class="status-pill"><span class="dot"></span><span id="online-count">0</span> online</div>
+      <span style="font-size:0.78rem;color:var(--muted)" id="hora-atual"></span>
+    </div>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="filtros">
+    <button class="filtro-btn active" onclick="setDias(7, this)">7 dias</button>
+    <button class="filtro-btn" onclick="setDias(15, this)">15 dias</button>
+    <button class="filtro-btn" onclick="setDias(30, this)">30 dias</button>
+    <button class="filtro-btn" onclick="setPeriodoCustom(this)">Personalizado</button>
+    <div class="date-inputs" id="date-inputs">
+      <span style="font-size:0.8rem;color:var(--muted)">De:</span>
+      <input type="date" id="data-inicio">
+      <span style="font-size:0.8rem;color:var(--muted)">Até:</span>
+      <input type="date" id="data-fim">
+      <button class="filtro-btn active" onclick="aplicarPeriodoCustom()">Aplicar</button>
+    </div>
+    <span style="color:var(--border2)">|</span>
+    <input class="busca-input" type="text" placeholder="Buscar por nome, placa ou e-mail..." id="busca-input" oninput="onBusca(this.value)">
+  </div>
+
+  <!-- VIEW: OVERVIEW -->
+  <div class="view active" id="view-overview">
+    <div class="section-title">Indicadores do período</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Total Motoristas</div><div class="kpi-valor" id="kpi-total">–</div><div class="kpi-sub">cadastrados</div></div>
+      <div class="kpi-card verde"><div class="kpi-label">Online agora</div><div class="kpi-valor" id="kpi-online">0</div><div class="kpi-sub">ativos</div></div>
+      <div class="kpi-card"><div class="kpi-label">Corridas</div><div class="kpi-valor" id="kpi-corridas">–</div><div class="kpi-sub">capturadas</div></div>
+      <div class="kpi-card verde"><div class="kpi-label">KM Rodados</div><div class="kpi-valor" id="kpi-km">–</div><div class="kpi-sub">acumulados</div></div>
+      <div class="kpi-card amber"><div class="kpi-label">Fat. Bruto</div><div class="kpi-valor" id="kpi-fat">–</div><div class="kpi-sub">estimado R$</div></div>
+      <div class="kpi-card verde"><div class="kpi-label">Fat. Líquido</div><div class="kpi-valor" id="kpi-fat-liq">–</div><div class="kpi-sub">estimado R$</div></div>
+      <div class="kpi-card amber"><div class="kpi-label">Cupons Ativos</div><div class="kpi-valor" id="kpi-tok-ativos">–</div><div class="kpi-sub">válidos</div></div>
+      <div class="kpi-card"><div class="kpi-label">Cupons Usados</div><div class="kpi-valor" id="kpi-tok-usados">–</div><div class="kpi-sub">queimados</div></div>
+    </div>
+
+    <div class="section-title">Análise de mercado</div>
+    <div class="charts-grid">
+      <div class="chart-card wide">
+        <div class="chart-title">Curva de Faturamento Diário da Categoria (R$)</div>
+        <div style="position:relative;width:100%;height:240px;">
+          <canvas id="chartLinha" role="img" aria-label="Faturamento diário estimado da categoria">Faturamento diário da categoria em Vitória-ES.</canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Divisão da Frota por Energia</div>
+        <div class="chart-legend">
+          <div class="legend-item"><span class="legend-dot" style="background:#7c3aed"></span>Elétrico (<span id="leg-elet">0</span>)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>Combustão (<span id="leg-comb">0</span>)</div>
+        </div>
+        <div style="position:relative;width:100%;height:220px;">
+          <canvas id="chartPizza" role="img" aria-label="Pizza divisão frota elétrica vs combustão">Divisão da frota por tipo de energia.</canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🏆 Ranking Colaborativo</div>
+        <div id="ranking-list"><div style="color:var(--muted);font-size:.82rem">Carregando...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: MOTORISTAS -->
+  <div class="view" id="view-motoristas">
+    <div class="section-title">Cadastros ativos</div>
+    <div class="chart-card">
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Nome</th><th>Celular</th><th>E-mail</th><th>Veículo</th><th>Placa</th><th>Motor</th><th>Cadastro</th></tr></thead>
+          <tbody id="tabela-motoristas"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: CORRIDAS -->
+  <div class="view" id="view-corridas">
+    <div class="section-title">Corridas capturadas pelo copiloto</div>
+    <div class="chart-card">
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Motorista</th><th>App</th><th>Bairro</th><th>Val. Bruto</th><th>KM</th><th>Ganho Líq.</th><th>Aceita</th><th>Data/Hora</th></tr></thead>
+          <tbody id="tabela-corridas"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: AUDITORIA -->
+  <div class="view" id="view-auditoria">
+    <div class="section-title">Assinaturas digitais SHA-256 — compliance LGPD</div>
+    <div class="chart-card">
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th>Motorista ID</th><th>Data do Aceite</th><th>Hash SHA-256</th></tr></thead>
+          <tbody id="tabela-auditoria"><tr><td colspan="3" style="text-align:center;color:var(--muted);padding:2rem">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+let diasSelecionados = 7;
+let periodoCustom = false;
+let buscaAtual = '';
+let kpis = {};
+let motoristas = [];
+let corridas = [];
+let chartLinha = null;
+let chartPizza = null;
+
+// ─── RELÓGIO ─────────────────────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('hora-atual').textContent =
+    new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
+}, 1000);
+
+// ─── NAVEGAÇÃO ────────────────────────────────────────────────────────────────
+const titulos = { overview: 'Visão Geral', motoristas: 'Motoristas', corridas: 'Corridas', auditoria: 'Auditoria LGPD' };
+
+function setView(nome, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + nome).classList.add('active');
+  if (btn) btn.classList.add('active');
+  document.getElementById('view-title').textContent = titulos[nome];
+  if (nome === 'motoristas') carregarMotoristas();
+  if (nome === 'corridas') carregarCorridas();
+  if (nome === 'auditoria') carregarAuditoria();
+}
+
+// ─── FILTROS ─────────────────────────────────────────────────────────────────
+function setDias(dias, btn) {
+  diasSelecionados = dias;
+  periodoCustom = false;
+  document.getElementById('date-inputs').style.display = 'none';
+  document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  carregarTudo();
+}
+
+function setPeriodoCustom(btn) {
+  periodoCustom = true;
+  document.getElementById('date-inputs').style.display = 'flex';
+  document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function aplicarPeriodoCustom() {
+  carregarTudo();
+}
+
+function onBusca(val) {
+  buscaAtual = val.toLowerCase();
+  renderMotoristas();
+  renderCorridas();
+}
+
+// ─── WEBSOCKET ────────────────────────────────────────────────────────────────
+function conectarWS() {
+  try {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${proto}://${location.host}`);
+
+    ws.onopen = () => {
+      document.getElementById('ws-status').textContent = '⬤ Conectado';
+      document.getElementById('ws-status').style.color = '#10b981';
+    };
+
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'initial_stats' || msg.type === 'motorista_status') {
+        const n = msg.motoristasOnline || 0;
+        document.getElementById('online-count').textContent = n;
+        document.getElementById('kpi-online').textContent = n;
+      }
+
+      if (msg.type === 'nova_corrida') { corridas.unshift(msg.corrida); renderCorridas(); carregarKPIs(); }
+      if (msg.type === 'novo_motorista') { motoristas.unshift(msg.motorista); renderMotoristas(); carregarKPIs(); }
+      if (msg.type === 'cupom_validado') { carregarKPIs(); }
+    };
+
+    ws.onclose = () => {
+      document.getElementById('ws-status').textContent = '⬤ Desconectado';
+      document.getElementById('ws-status').style.color = '#ef4444';
+      setTimeout(conectarWS, 3000);
+    };
+  } catch(e) { setTimeout(conectarWS, 5000); }
+}
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+function buildParams() {
+  if (periodoCustom) {
+    const ini = document.getElementById('data-inicio').value;
+    const fim = document.getElementById('data-fim').value;
+    return `periodo=personalizado&data_inicio=${ini}&data_fim=${fim}`;
+  }
+  return `periodo=${diasSelecionados}`;
+}
+
+async function carregarTudo() {
+  await Promise.all([carregarKPIs(), carregarMotoristas(), carregarCorridas(), carregarAuditoria()]);
+}
+
+async function carregarKPIs() {
+  try {
+    const r = await fetch(`/api/v1/admin/dashboard-stats?${buildParams()}`);
+    kpis = await r.json();
+    renderKPIs();
+    renderCharts();
+    renderRanking();
+  } catch(e) { console.error('Erro KPIs', e); }
+}
+
+async function carregarMotoristas() {
+  try {
+    const r = await fetch('/api/v1/motoristas');
+    motoristas = await r.json();
+    renderMotoristas();
+  } catch(e) {}
+}
+
+async function carregarCorridas() {
+  try {
+    const r = await fetch(`/api/v1/admin/dashboard-stats?${buildParams()}`);
+    const data = await r.json();
+    corridas = [];
+    renderCorridas();
+  } catch(e) {}
+}
+
+async function carregarAuditoria() {
+  try {
+    const r = await fetch('/api/v1/auditoria');
+    const data = await r.json();
+    const html = data.map(a => `
+      <tr>
+        <td style="font-family:'JetBrains Mono',monospace">#${a.motorista_id}</td>
+        <td style="color:var(--muted)">${new Date(a.data_aceite).toLocaleString('pt-BR')}</td>
+        <td class="hash-text">${a.hash_sha256}</td>
+      </tr>
+    `).join('');
+    document.getElementById('tabela-auditoria').innerHTML = html || '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:2rem">Sem registros</td></tr>';
+  } catch(e) {}
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function fmtNum(n) { return n >= 1000 ? (n/1000).toFixed(1)+'k' : String(Math.round(n)); }
+function fmtR(n) { return 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+
+function renderKPIs() {
+  document.getElementById('kpi-total').textContent = kpis.totalCadastros || 0;
+  document.getElementById('kpi-online').textContent = kpis.motoristasOnline || 0;
+  document.getElementById('online-count').textContent = kpis.motoristasOnline || 0;
+  document.getElementById('kpi-corridas').textContent = kpis.totalCorridas || 0;
+  document.getElementById('kpi-km').textContent = fmtNum(kpis.totalKM || 0);
+  document.getElementById('kpi-fat').textContent = fmtR(kpis.totalFaturamento || 0);
+  document.getElementById('kpi-fat-liq').textContent = fmtR(kpis.totalFaturamentoLiquido || 0);
+  document.getElementById('kpi-tok-ativos').textContent = kpis.tokensAtivos || 0;
+  document.getElementById('kpi-tok-usados').textContent = kpis.tokensUsados || 0;
+  document.getElementById('leg-elet').textContent = kpis.veiculos?.eletricos || 0;
+  document.getElementById('leg-comb').textContent = kpis.veiculos?.combustao || 0;
+}
+
+function renderCharts() {
+  const ctxLinha = document.getElementById('chartLinha').getContext('2d');
+  const ctxPizza = document.getElementById('chartPizza').getContext('2d');
+
+  if (chartLinha) chartLinha.destroy();
+  if (chartPizza) chartPizza.destroy();
+
+  chartLinha = new Chart(ctxLinha, {
+    type: 'line',
+    data: {
+      labels: kpis.dadosLinha?.labels || ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'],
+      datasets: [{
+        label: 'Faturamento',
+        data: kpis.dadosLinha?.faturamento || [0,0,0,0,0,0,0],
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124,58,237,0.15)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8b85a8' },
+          grid: { color: 'rgba(124,58,237,0.1)' }
+        },
+        y: {
+          ticks: { color: '#8b85a8', callback: v => 'R$ ' + v.toLocaleString('pt-BR') },
+          grid: { color: 'rgba(124,58,237,0.1)' }
+        }
+      }
+    }
+  });
+
+  chartPizza = new Chart(ctxPizza, {
+    type: 'doughnut',
+    data: {
+      labels: ['Elétrico', 'Combustão'],
+      datasets: [{
+        data: [kpis.veiculos?.eletricos || 0, kpis.veiculos?.combustao || 0],
+        backgroundColor: ['#7c3aed', '#f59e0b'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function renderRanking() {
+  const list = document.getElementById('ranking-list');
+  if (!kpis.rankingMotoristas || kpis.rankingMotoristas.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:.82rem">Sem dados</div>';
+    return;
+  }
+  list.innerHTML = kpis.rankingMotoristas.slice(0, 5).map((m, i) => `
+    <div class="ranking-item">
+      <div class="ranking-pos">#${i+1}</div>
+      <div class="ranking-nome">${m.nome}</div>
+      <div class="ranking-km">${fmtNum(m.km || 0)} km</div>
+    </div>
+  `).join('');
+}
+
+function renderMotoristas() {
+  const tbody = document.getElementById('tabela-motoristas');
+  if (!motoristas || motoristas.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Sem registros</td></tr>';
+    return;
+  }
+  const filtrados = motoristas.filter(m => {
+    if (!buscaAtual) return true;
+    const hay = (m.nome+' '+m.celular+' '+m.email+' '+m.placa_carro).toLowerCase();
+    return hay.includes(buscaAtual);
+  });
+  tbody.innerHTML = filtrados.map((m, i) => `
+    <tr>
+      <td style="font-family:'JetBrains Mono',monospace">#${m.id}</td>
+      <td>${m.nome}</td>
+      <td>${m.celular}</td>
+      <td>${m.email}</td>
+      <td>${m.marca} ${m.modelo} ${m.ano_carro}</td>
+      <td><span class="badge badge-roxo">${(m.placa_carro || '').toUpperCase()}</span></td>
+      <td><span class="badge ${m.tipo_motor === 'eletrico' ? 'badge-green' : 'badge-amber'}">${m.tipo_motor || 'combustao'}</span></td>
+      <td style="color:var(--muted)">${new Date(m.created_at).toLocaleDateString('pt-BR')}</td>
+    </tr>
+  `).join('');
+}
+
+function renderCorridas() {
+  const tbody = document.getElementById('tabela-corridas');
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sem registros</td></tr>';
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  conectarWS();
+  carregarTudo();
+});
+</script>
+</body>
+</html>

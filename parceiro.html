@@ -1,0 +1,263 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parceiros - Validação de Desconto</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: #1a1a2e;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .company-info {
+            color: #8888aa;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .company-info strong {
+            color: #aaaacc;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+        }
+
+        .label {
+            color: #aaaacc;
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .token-input {
+            width: 100%;
+            padding: 20px;
+            font-size: 28px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            background: #252542;
+            border: 2px solid #333355;
+            border-radius: 15px;
+            color: #ffffff;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+
+        .token-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .validate-btn {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .validate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .validate-btn:active {
+            transform: translateY(0);
+        }
+
+        .validate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result-panel {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+        }
+
+        .result-panel.success {
+            display: block;
+            background: rgba(76, 175, 80, 0.15);
+            border: 2px solid #4CAF50;
+        }
+
+        .result-panel.error {
+            display: block;
+            background: rgba(244, 67, 54, 0.15);
+            border: 2px solid #f44336;
+        }
+
+        .result-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .result-message {
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .success .result-message {
+            color: #4CAF50;
+        }
+
+        .error .result-message {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Smart Parceiros</div>
+            <div class="company-info">
+                Propriedade de <strong>ELVIVA GROUP LTDA</strong><br>
+                CNPJ: 62.444.354/0001-82
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="label">Código do Token</label>
+            <input 
+                type="text" 
+                class="token-input" 
+                id="tokenInput" 
+                maxlength="6" 
+                placeholder="ABC123"
+                autocomplete="off"
+            >
+        </div>
+
+        <button class="validate-btn" id="validateBtn" onclick="validateToken()">
+            Validar Desconto
+        </button>
+
+        <div class="result-panel" id="resultPanel">
+            <div class="result-icon" id="resultIcon"></div>
+            <div class="result-message" id="resultMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        const tokenInput = document.getElementById('tokenInput');
+        const validateBtn = document.getElementById('validateBtn');
+        const resultPanel = document.getElementById('resultPanel');
+        const resultIcon = document.getElementById('resultIcon');
+        const resultMessage = document.getElementById('resultMessage');
+
+        tokenInput.addEventListener('input', function() {
+            this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            resultPanel.style.display = 'none';
+        });
+
+        tokenInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                validateToken();
+            }
+        });
+
+        async function validateToken() {
+            const token = tokenInput.value.trim();
+            
+            if (token.length !== 6) {
+                showResult(false, 'Código inválido. Digite 6 caracteres.');
+                return;
+            }
+
+            validateBtn.disabled = true;
+            validateBtn.textContent = 'Validando...';
+
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/token/validar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token_codigo: token })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(true, data.message);
+                } else {
+                    showResult(false, data.error || 'Token inválido');
+                }
+            } catch (error) {
+                showResult(false, 'Erro de conexão com o servidor');
+            } finally {
+                validateBtn.disabled = false;
+                validateBtn.textContent = 'Validar Desconto';
+            }
+        }
+
+        function showResult(success, message) {
+            resultPanel.className = 'result-panel';
+            
+            if (success) {
+                resultPanel.classList.add('success');
+                resultIcon.textContent = '✓';
+            } else {
+                resultPanel.classList.add('error');
+                resultIcon.textContent = '✗';
+            }
+            
+            resultMessage.textContent = message;
+            resultPanel.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
