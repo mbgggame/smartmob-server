@@ -209,5 +209,159 @@
     </div>
   </div>
 </div>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+const firebaseConfig = {
+  apiKey:"AIzaSyDl99YsDc64dBAmsXDzE_1repj-XVwaEdQ",
+  authDomain:"smartmob-d626d.firebaseapp.com",
+  projectId:"smartmob-d626d",
+  storageBucket:"smartmob-d626d.firebasestorage.app",
+  messagingSenderId:"834995545401",
+  appId:"1:834995545401:android:c6b3df05b161c110b3b4e8"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+let sellerData = null;
+let viewAtual = 'home';
+let pedidosFiltro = 'novo';
+let todosPedidos = [];
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) { window.location.href='/login'; return; }
+  document.getElementById('seller-nome').textContent = user.displayName||user.email;
+  document.getElementById('seller-email').textContent = user.email;
+  document.getElementById('perfil-nome').textContent = user.displayName||user.email;
+  document.getElementById('perfil-email').textContent = user.email;
+  document.getElementById('avatar-letra').textContent = (user.displayName||user.email)[0].toUpperCase();
+  await carregarDados(user.uid);
+});
+
+async function carregarDados(uid) {
+  try {
+    const [rP,rS,rPed,rAv] = await Promise.all([
+      fetch('/api/v1/seller/produtos?uid='+uid),
+      fetch('/api/v1/seller/servicos?uid='+uid),
+      fetch('/api/v1/seller/pedidos?uid='+uid),
+      fetch('/api/v1/seller/avaliacoes?uid='+uid)
+    ]);
+    const produtos = await rP.json();
+    const servicos = await rS.json();
+    todosPedidos = await rPed.json();
+    const avaliacoes = await rAv.json();
+    sellerData = {uid, produtos, servicos, pedidos:todosPedidos, avaliacoes};
+    renderHome(); renderProdutos(); renderServicos(); renderPedidos(); renderAvaliacoes();
+  } catch(e){ console.error(e); }
+}
+
+function renderHome() {
+  const {produtos,servicos,pedidos,avaliacoes} = sellerData;
+  document.getElementById('kpi-produtos').textContent = produtos.length;
+  document.getElementById('kpi-servicos').textContent = servicos.length;
+  document.getElementById('kpi-pedidos').textContent = pedidos.filter(p=>p.status==='novo').length;
+  const notas = avaliacoes.filter(a=>a.nota).map(a=>a.nota);
+  document.getElementById('kpi-nota').textContent = notas.length?(notas.reduce((a,b)=>a+b,0)/notas.length).toFixed(1)+'★':'-';
+  const rec = pedidos.slice(0,5);
+  document.getElementById('pedidos-recentes').innerHTML = rec.length?
+    rec.map(p=>`<div class="pedido-row"><div class="pedido-info"><div class="pedido-nome">${p.item_nome||'Item'}</div><div class="pedido-cliente">${p.cliente_nome||'Cliente'}</div></div><span class="badge badge-${p.status}">${p.status}</span><div class="pedido-valor">R$ ${Number(p.valor).toFixed(2)}</div></div>`).join(''):
+    '<div class="empty">Nenhum pedido ainda</div>';
+}
+
+function renderProdutos() {
+  const lista = sellerData.produtos;
+  document.getElementById('lista-produtos').innerHTML = lista.length?
+    lista.map(p=>`<div class="card"><div class="card-img">📦</div><div class="card-nome">${p.nome}</div><div class="card-preco">R$ ${Number(p.preco).toFixed(2)}</div><div class="card-info">Estoque: ${p.estoque} • ${p.categoria} <span class="badge ${p.ativo?'badge-ativo':'badge-inativo'}">${p.ativo?'Ativo':'Pausado'}</span></div><div class="card-actions"><button class="btn btn-secondary" style="flex:1;font-size:0.78rem" onclick="toggleProduto(${p.id},${!p.ativo})">${p.ativo?'Pausar':'Ativar'}</button></div></div>`).join(''):
+    '<div class="empty">Nenhum produto cadastrado.<br>Clique em "+ Novo" para começar.</div>';
+}
+
+function renderServicos() {
+  const lista = sellerData.servicos;
+  document.getElementById('lista-servicos').innerHTML = lista.length?
+    lista.map(s=>`<div class="card"><div class="card-img">🔧</div><div class="card-nome">${s.nome}</div><div class="card-preco">R$ ${Number(s.preco).toFixed(2)}</div><div class="card-info">${s.tempo_estimado||''} • ${s.categoria} <span class="badge ${s.disponivel?'badge-ativo':'badge-inativo'}">${s.disponivel?'Disponível':'Indisponível'}</span></div><div class="card-actions"><button class="btn btn-secondary" style="flex:1;font-size:0.78rem" onclick="toggleServico(${s.id},${!s.disponivel})">${s.disponivel?'Pausar':'Ativar'}</button></div></div>`).join(''):
+    '<div class="empty">Nenhum serviço cadastrado.<br>Clique em "+ Novo" para começar.</div>';
+}
+
+function renderPedidos() {
+  const lista = todosPedidos.filter(p=>p.status===pedidosFiltro);
+  document.getElementById('lista-pedidos').innerHTML = lista.length?
+    lista.map(p=>`<div class="pedido-row"><div class="pedido-info"><div class="pedido-nome">${p.item_nome||'Item'}</div><div class="pedido-cliente">${p.cliente_nome||''} • ${p.cliente_telefone||''}</div></div><span class="badge badge-${p.status}">${p.status}</span><div class="pedido-valor">R$ ${Number(p.valor).toFixed(2)}</div>${p.status==='novo'?`<button class="btn btn-primary" style="font-size:0.75rem;padding:0.4rem 0.8rem" onclick="aceitarPedido(${p.id})">Aceitar</button>`:''}</div>`).join(''):
+    '<div class="empty">Nenhum pedido neste status</div>';
+}
+
+function renderAvaliacoes() {
+  const lista = sellerData.avaliacoes;
+  document.getElementById('lista-avaliacoes').innerHTML = lista.length?
+    lista.map(a=>`<div class="card" style="margin-bottom:0.75rem"><div style="display:flex;justify-content:space-between;margin-bottom:0.5rem"><span style="font-weight:600">${a.cliente_nome||'Cliente'}</span><span style="color:#f59e0b">${'★'.repeat(a.nota||0)}${'☆'.repeat(5-(a.nota||0))}</span></div><p style="font-size:0.85rem;color:#8b85a8">${a.comentario||''}</p></div>`).join(''):
+    '<div class="empty">Nenhuma avaliação ainda</div>';
+}
+
+window.setView = (nome, btn) => {
+  viewAtual = nome;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+nome).classList.add('active');
+  if(btn) btn.classList.add('active');
+  const titulos = {home:'Visão Geral',produtos:'Meus Produtos',servicos:'Meus Serviços',pedidos:'Pedidos',avaliacoes:'Avaliações',perfil:'Minha Loja'};
+  document.getElementById('view-title').textContent = titulos[nome];
+  const btnAcao = document.getElementById('btn-acao');
+  if(nome==='produtos'){btnAcao.textContent='+ Novo Produto';btnAcao.style.display='block';}
+  else if(nome==='servicos'){btnAcao.textContent='+ Novo Serviço';btnAcao.style.display='block';}
+  else{btnAcao.style.display='none';}
+};
+
+window.abrirModal = () => {
+  if(viewAtual==='produtos') document.getElementById('modal-produto').classList.add('open');
+  else if(viewAtual==='servicos') document.getElementById('modal-servico').classList.add('open');
+};
+window.fecharModal = (id) => document.getElementById(id).classList.remove('open');
+window.filtrarPedidos = (status,btn) => {
+  pedidosFiltro = status;
+  document.querySelectorAll('.tab-p').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderPedidos();
+};
+
+window.salvarProduto = async () => {
+  const compat = ['combustao','eletrico','hibrido'].filter(v=>document.getElementById('pc-'+v).checked);
+  const body = {uid:sellerData.uid,nome:document.getElementById('prod-nome').value,descricao:document.getElementById('prod-desc').value,preco:parseFloat(document.getElementById('prod-preco').value)||0,estoque:parseInt(document.getElementById('prod-estoque').value)||0,categoria:document.getElementById('prod-categoria').value,compatibilidade:compat};
+  if(!body.nome) return alert('Nome obrigatório');
+  await fetch('/api/v1/seller/produto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  fecharModal('modal-produto');
+  await carregarDados(sellerData.uid);
+};
+
+window.salvarServico = async () => {
+  const compat = ['combustao','eletrico','hibrido'].filter(v=>document.getElementById('sc-'+v).checked);
+  const body = {uid:sellerData.uid,nome:document.getElementById('serv-nome').value,descricao:document.getElementById('serv-desc').value,preco:parseFloat(document.getElementById('serv-preco').value)||0,tempo_estimado:document.getElementById('serv-tempo').value,categoria:document.getElementById('serv-categoria').value,compatibilidade:compat};
+  if(!body.nome) return alert('Nome obrigatório');
+  await fetch('/api/v1/seller/servico',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  fecharModal('modal-servico');
+  await carregarDados(sellerData.uid);
+};
+
+window.toggleProduto = async (id,ativo) => {
+  await fetch('/api/v1/seller/produto/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ativo})});
+  await carregarDados(sellerData.uid);
+};
+
+window.toggleServico = async (id,disponivel) => {
+  await fetch('/api/v1/seller/servico/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({disponivel})});
+  await carregarDados(sellerData.uid);
+};
+
+window.aceitarPedido = async (id) => {
+  await fetch('/api/v1/seller/pedido/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'aceito'})});
+  await carregarDados(sellerData.uid);
+};
+
+window.salvarPerfil = async () => {
+  const esp = ['combustao','eletrico','hibrido'].filter(v=>document.getElementById('esp-'+v).checked);
+  const body = {uid:sellerData.uid,nome_loja:document.getElementById('p-nome-loja').value,descricao_loja:document.getElementById('p-descricao').value,telefone:document.getElementById('p-telefone').value,cnpj:document.getElementById('p-cnpj').value,area_atuacao:document.getElementById('p-area').value,especialidades:esp};
+  await fetch('/api/v1/seller/perfil',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  alert('Perfil salvo com sucesso!');
+};
+
+window.sair = async () => { await signOut(auth); window.location.href='/login'; };
+</script>
 </body>
 </html>
