@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart – Login do Seller</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Syne',sans-serif;background:#080810;color:#f0eeff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+  .card{background:#0f0f1e;border:1px solid rgba(124,58,237,0.2);border-radius:20px;padding:2.5rem;width:100%;max-width:420px}
+  .logo{font-size:2rem;font-weight:800;color:#a855f7;text-align:center;margin-bottom:0.25rem}
+  .subtitle{text-align:center;font-size:0.8rem;color:#8b85a8;margin-bottom:2rem;text-transform:uppercase;letter-spacing:0.1em}
+  .form-group{margin-bottom:1rem}
+  label{display:block;font-size:0.75rem;color:#8b85a8;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em}
+  input{width:100%;padding:0.75rem 1rem;background:#161628;border:1px solid rgba(124,58,237,0.2);border-radius:10px;color:#f0eeff;font-family:'Syne',sans-serif;font-size:0.9rem;outline:none;transition:border-color 0.2s}
+  input:focus{border-color:#7c3aed}
+  input::placeholder{color:#8b85a8}
+  .btn{width:100%;padding:0.9rem;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.2s;margin-bottom:0.75rem}
+  .btn-primary{background:#7c3aed;color:#fff}
+  .btn-primary:hover{background:#6d28d9}
+  .btn-primary:disabled{opacity:0.6;cursor:not-allowed}
+  .btn-google{background:#161628;color:#f0eeff;border:1px solid rgba(124,58,237,0.3);display:flex;align-items:center;justify-content:center;gap:10px}
+  .btn-google:hover{background:#1f1f35}
+  .divider{display:flex;align-items:center;gap:1rem;margin:1rem 0;color:#8b85a8;font-size:0.8rem}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(124,58,237,0.2)}
+  .link{text-align:center;font-size:0.82rem;color:#8b85a8;margin-top:1rem}
+  .link a{color:#a855f7;text-decoration:none}
+  .esqueci{text-align:right;font-size:0.78rem;margin-top:0.25rem}
+  .esqueci a{color:#8b85a8;text-decoration:none}
+  .esqueci a:hover{color:#a855f7}
+  .msg{padding:0.75rem 1rem;border-radius:8px;font-size:0.82rem;margin-bottom:1rem;display:none}
+  .msg.erro{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3)}
+  .msg.ok{background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3)}
+  .novo-termo{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:1rem;margin-bottom:1rem;display:none}
+  .novo-termo p{font-size:0.82rem;color:#f59e0b;margin-bottom:0.5rem}
+  .termos-box{background:#161628;border-radius:8px;height:150px;overflow-y:auto;padding:0.75rem;font-size:0.72rem;color:#8b85a8;line-height:1.7;margin-bottom:0.75rem}
+  .check-group{display:flex;align-items:flex-start;gap:10px;margin-bottom:0.5rem;font-size:0.78rem;color:#8b85a8}
+  .check-group input[type=checkbox]{width:16px;height:16px;accent-color:#7c3aed;margin-top:2px;flex-shrink:0}
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-thumb{background:rgba(124,58,237,0.4);border-radius:4px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Smart</div>
+  <div class="subtitle">Marketplace — Login do Seller</div>
+  <div id="msg" class="msg"></div>
+
+  <div id="novo-termo-box" class="novo-termo">
+    <p>⚠️ Os Termos de Uso foram atualizados. Leia e aceite para continuar.</p>
+    <div class="termos-box" id="novo-termos-texto">Carregando...</div>
+    <div class="check-group">
+      <input type="checkbox" id="cb-novo-termo">
+      <label for="cb-novo-termo">Li e aceito os novos Termos de Uso da ELVIVA GROUP LTDA (CNPJ: 62.444.354/0001-82)</label>
+    </div>
+    <button class="btn btn-primary" onclick="aceitarNovoTermo()">Aceitar e Continuar</button>
+  </div>
+
+  <div id="form-login">
+    <div class="form-group">
+      <label>E-mail</label>
+      <input type="email" id="email" placeholder="seu@email.com">
+    </div>
+    <div class="form-group">
+      <label>Senha</label>
+      <input type="password" id="senha" placeholder="Sua senha">
+      <div class="esqueci"><a href="#" onclick="esqueceuSenha()">Esqueci minha senha</a></div>
+    </div>
+    <button class="btn btn-primary" id="btn-login" onclick="fazerLogin()">Entrar</button>
+    <div class="divider">ou</div>
+    <button class="btn btn-google" onclick="loginGoogle()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Entrar com Google
+    </button>
+    <div class="link">Não tem conta? <a href="/cadastro">Cadastrar como Seller</a></div>
+  </div>
+</div>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+const firebaseConfig = {
+  apiKey:"AIzaSyDl99YsDc64dBAmsXDzE_1repj-XVwaEdQ",
+  authDomain:"smartmob-d626d.firebaseapp.com",
+  projectId:"smartmob-d626d",
+  storageBucket:"smartmob-d626d.firebasestorage.app",
+  messagingSenderId:"834995545401",
+  appId:"1:834995545401:android:c6b3df05b161c110b3b4e8"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+let novoTermoTexto = '';
+let novoTermoVersao = '';
+let uidAtual = '';
+
+function mostrarMsg(texto, tipo) {
+  const el = document.getElementById('msg');
+  el.textContent = texto; el.className = 'msg '+tipo; el.style.display = 'block';
+}
+
+async function verificarTermo(uid) {
+  try {
+    const r = await fetch('/api/v1/seller/verificar-termo?uid='+uid);
+    const data = await r.json();
+    if (data.precisa_atualizar) {
+      novoTermoTexto = data.texto;
+      novoTermoVersao = data.versao;
+      uidAtual = uid;
+      document.getElementById('novo-termos-texto').innerHTML = data.texto.replace(/\n/g,'<br>');
+      document.getElementById('novo-termo-box').style.display = 'block';
+      document.getElementById('form-login').style.display = 'none';
+      return false;
+    }
+    return true;
+  } catch(e) { return true; }
+}
+
+window.aceitarNovoTermo = async () => {
+  if (!document.getElementById('cb-novo-termo').checked)
+    return mostrarMsg('Aceite os novos termos para continuar.','erro');
+  try {
+    await fetch('/api/v1/seller/atualizar-termo', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({firebase_uid: uidAtual, versao_termo: novoTermoVersao, texto_termo: novoTermoTexto})
+    });
+    window.location.href = '/seller';
+  } catch(e) { mostrarMsg('Erro ao aceitar termo.','erro'); }
+};
+
+window.fazerLogin = async () => {
+  const email = document.getElementById('email').value.trim();
+  const senha = document.getElementById('senha').value;
+  if (!email||!senha) return mostrarMsg('Preencha e-mail e senha.','erro');
+  try {
+    document.getElementById('btn-login').disabled = true;
+    document.getElementById('btn-login').textContent = 'Entrando...';
+    const cred = await signInWithEmailAndPassword(auth, email, senha);
+    const ok = await verificarTermo(cred.user.uid);
+    if (ok) { mostrarMsg('Login realizado! Redirecionando...','ok'); setTimeout(()=>window.location.href='/seller',1500); }
+  } catch(e) {
+    document.getElementById('btn-login').disabled = false;
+    document.getElementById('btn-login').textContent = 'Entrar';
+    if (e.code==='auth/invalid-credential') mostrarMsg('E-mail ou senha incorretos.','erro');
+    else mostrarMsg('Erro: '+e.message,'erro');
+  }
+};
+
+window.loginGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const ok = await verificarTermo(result.user.uid);
+    if (ok) { mostrarMsg('Login realizado! Redirecionando...','ok'); setTimeout(()=>window.location.href='/seller',1500); }
+  } catch(e) { mostrarMsg('Erro Google: '+e.message,'erro'); }
+};
+
+window.esqueceuSenha = async () => {
+  const email = document.getElementById('email').value.trim();
+  if (!email) return mostrarMsg('Digite seu e-mail primeiro.','erro');
+  try {
+    await sendPasswordResetEmail(auth, email);
+    mostrarMsg('E-mail de recuperação enviado!','ok');
+  } catch(e) { mostrarMsg('Erro: '+e.message,'erro'); }
+};
+</script>
+</body>
+</html>
