@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart – Painel do Seller</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Syne',sans-serif;background:#080810;color:#f0eeff;min-height:100vh}
+  .sidebar{position:fixed;top:0;left:0;width:220px;height:100vh;background:#0f0f1e;border-right:1px solid rgba(124,58,237,0.18);display:flex;flex-direction:column;padding:1.5rem 1rem;z-index:100}
+  .logo{font-size:1.5rem;font-weight:800;color:#a855f7;margin-bottom:0.2rem}
+  .logo-sub{font-size:0.65rem;color:#8b85a8;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:2rem}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:0.6rem 0.8rem;border-radius:8px;font-size:0.85rem;color:#8b85a8;cursor:pointer;transition:all 0.15s;margin-bottom:0.25rem;border:none;background:none;width:100%;text-align:left;font-family:'Syne',sans-serif}
+  .nav-item:hover{color:#f0eeff;background:#161628}
+  .nav-item.active{color:#a855f7;background:rgba(124,58,237,0.12)}
+  .sidebar-footer{margin-top:auto;font-size:0.7rem;color:#8b85a8;line-height:1.6}
+  .btn-sair{width:100%;padding:0.5rem;border:1px solid rgba(239,68,68,0.3);border-radius:8px;background:transparent;color:#ef4444;font-family:'Syne',sans-serif;font-size:0.78rem;cursor:pointer;margin-top:0.75rem}
+  .main{margin-left:220px;padding:2rem;min-height:100vh}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem}
+  .topbar-title{font-size:1.4rem;font-weight:700}
+  .btn{padding:0.6rem 1.2rem;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:0.85rem;cursor:pointer;transition:all 0.2s;font-weight:600}
+  .btn-primary{background:#7c3aed;color:#fff}
+  .btn-secondary{background:#161628;color:#f0eeff;border:1px solid rgba(124,58,237,0.3)}
+  .section-title{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.15em;color:#8b85a8;margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:'';flex:1;height:1px;background:rgba(124,58,237,0.18)}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:2rem}
+  .kpi-card{background:#0f0f1e;border:1px solid rgba(124,58,237,0.18);border-radius:12px;padding:1.2rem;position:relative;overflow:hidden}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:#7c3aed}
+  .kpi-card.verde::before{background:#10b981}
+  .kpi-card.amber::before{background:#f59e0b}
+  .kpi-label{font-size:0.7rem;color:#8b85a8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem}
+  .kpi-valor{font-size:1.6rem;font-weight:700}
+  .grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-bottom:2rem}
+  .card{background:#0f0f1e;border:1px solid rgba(124,58,237,0.18);border-radius:12px;padding:1.2rem}
+  .card-img{width:100%;height:120px;border-radius:8px;margin-bottom:0.75rem;background:#161628;display:flex;align-items:center;justify-content:center;color:#8b85a8;font-size:2rem}
+  .card-nome{font-size:0.95rem;font-weight:600;margin-bottom:0.25rem}
+  .card-preco{font-size:1.1rem;font-weight:700;color:#a855f7;margin-bottom:0.5rem}
+  .card-info{font-size:0.75rem;color:#8b85a8;margin-bottom:0.75rem}
+  .card-actions{display:flex;gap:0.5rem}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:600}
+  .badge-ativo{background:rgba(16,185,129,0.15);color:#10b981}
+  .badge-inativo{background:rgba(107,114,128,0.15);color:#6b7280}
+  .badge-novo{background:rgba(124,58,237,0.2);color:#a855f7}
+  .badge-aceito{background:rgba(59,130,246,0.2);color:#60a5fa}
+  .badge-concluido{background:rgba(16,185,129,0.15);color:#10b981}
+  .badge-cancelado{background:rgba(239,68,68,0.15);color:#ef4444}
+  .view{display:none}
+  .view.active{display:block}
+  .modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
+  .modal-bg.open{display:flex}
+  .modal{background:#0f0f1e;border:1px solid rgba(124,58,237,0.3);border-radius:16px;padding:2rem;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+  .modal h3{font-size:1.1rem;margin-bottom:1.5rem;color:#a855f7}
+  .form-group{margin-bottom:1rem}
+  .form-group label{display:block;font-size:0.72rem;color:#8b85a8;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em}
+  .form-group input,.form-group select,.form-group textarea{width:100%;padding:0.7rem 0.9rem;background:#161628;border:1px solid rgba(124,58,237,0.2);border-radius:8px;color:#f0eeff;font-family:'Syne',sans-serif;font-size:0.88rem;outline:none}
+  .form-group select option{background:#161628}
+  .form-group textarea{resize:vertical;min-height:80px}
+  .modal-actions{display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem}
+  .pedido-row{display:flex;align-items:center;gap:12px;padding:0.8rem;background:#161628;border-radius:8px;margin-bottom:0.5rem;flex-wrap:wrap}
+  .pedido-info{flex:1;min-width:150px}
+  .pedido-nome{font-size:0.88rem;font-weight:600}
+  .pedido-cliente{font-size:0.75rem;color:#8b85a8}
+  .pedido-valor{font-size:0.95rem;color:#a855f7;font-weight:700}
+  .tabs-pedido{display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap}
+  .tab-p{padding:0.4rem 0.9rem;border-radius:8px;border:1px solid rgba(124,58,237,0.2);background:#161628;color:#8b85a8;font-size:0.78rem;cursor:pointer;font-family:'Syne',sans-serif}
+  .tab-p.active{background:#7c3aed;color:#fff;border-color:#7c3aed}
+  .perfil-header{display:flex;align-items:center;gap:1.5rem;margin-bottom:2rem;padding:1.5rem;background:#0f0f1e;border:1px solid rgba(124,58,237,0.18);border-radius:12px}
+  .avatar{width:72px;height:72px;border-radius:50%;background:rgba(124,58,237,0.2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#a855f7;font-weight:700;flex-shrink:0}
+  .empty{text-align:center;padding:3rem;color:#8b85a8;font-size:0.88rem}
+  .check-row{display:flex;align-items:center;gap:6px;font-size:0.85rem;color:#f0eeff}
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-thumb{background:rgba(124,58,237,0.4);border-radius:4px}
+  @media(max-width:768px){.sidebar{display:none}.main{margin-left:0;padding:1rem}}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo">Smart</div>
+  <div class="logo-sub">Painel do Seller</div>
+  <button class="nav-item active" onclick="setView('home',this)">🏠 Visão Geral</button>
+  <button class="nav-item" onclick="setView('produtos',this)">📦 Produtos</button>
+  <button class="nav-item" onclick="setView('servicos',this)">🔧 Serviços</button>
+  <button class="nav-item" onclick="setView('pedidos',this)">📋 Pedidos</button>
+  <button class="nav-item" onclick="setView('avaliacoes',this)">⭐ Avaliações</button>
+  <button class="nav-item" onclick="setView('perfil',this)">⚙️ Minha Loja</button>
+  <div class="sidebar-footer">
+    <div id="seller-nome" style="color:#f0eeff;font-weight:600">-</div>
+    <div id="seller-email" style="margin-top:2px">-</div>
+    <button class="btn-sair" onclick="sair()">Sair</button>
+  </div>
+</aside>
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="view-title">Visão Geral</div>
+    <button class="btn btn-primary" id="btn-acao" style="display:none" onclick="abrirModal()">+ Novo</button>
+  </div>
+  <div class="view active" id="view-home">
+    <div class="section-title">Resumo da sua loja</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Produtos</div><div class="kpi-valor" id="kpi-produtos">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Serviços</div><div class="kpi-valor" id="kpi-servicos">0</div></div>
+      <div class="kpi-card verde"><div class="kpi-label">Pedidos Novos</div><div class="kpi-valor" id="kpi-pedidos">0</div></div>
+      <div class="kpi-card amber"><div class="kpi-label">Avaliação Média</div><div class="kpi-valor" id="kpi-nota">-</div></div>
+    </div>
+    <div class="section-title">Pedidos recentes</div>
+    <div id="pedidos-recentes"><div class="empty">Nenhum pedido ainda</div></div>
+  </div>
+  <div class="view" id="view-produtos">
+    <div class="section-title">Meus produtos</div>
+    <div class="grid-cards" id="lista-produtos"><div class="empty">Nenhum produto cadastrado</div></div>
+  </div>
+  <div class="view" id="view-servicos">
+    <div class="section-title">Meus serviços</div>
+    <div class="grid-cards" id="lista-servicos"><div class="empty">Nenhum serviço cadastrado</div></div>
+  </div>
+  <div class="view" id="view-pedidos">
+    <div class="tabs-pedido">
+      <button class="tab-p active" onclick="filtrarPedidos('novo',this)">Novos</button>
+      <button class="tab-p" onclick="filtrarPedidos('aceito',this)">Em andamento</button>
+      <button class="tab-p" onclick="filtrarPedidos('concluido',this)">Concluídos</button>
+      <button class="tab-p" onclick="filtrarPedidos('cancelado',this)">Cancelados</button>
+    </div>
+    <div id="lista-pedidos"><div class="empty">Nenhum pedido</div></div>
+  </div>
+  <div class="view" id="view-avaliacoes">
+    <div class="section-title">Avaliações recebidas</div>
+    <div id="lista-avaliacoes"><div class="empty">Nenhuma avaliação ainda</div></div>
+  </div>
+  <div class="view" id="view-perfil">
+    <div class="perfil-header">
+      <div class="avatar" id="avatar-letra">S</div>
+      <div><div style="font-size:1.2rem;font-weight:700" id="perfil-nome">-</div><div style="font-size:0.82rem;color:#8b85a8" id="perfil-email">-</div></div>
+    </div>
+    <div class="section-title">Dados da loja</div>
+    <div class="card" style="max-width:560px">
+      <div class="form-group"><label>Nome da Loja</label><input type="text" id="p-nome-loja" placeholder="Ex: Auto Peças Silva"></div>
+      <div class="form-group"><label>Descrição</label><textarea id="p-descricao" placeholder="Conte sobre sua loja..."></textarea></div>
+      <div class="form-group"><label>Telefone</label><input type="text" id="p-telefone" placeholder="(27) 99999-9999"></div>
+      <div class="form-group"><label>CNPJ (opcional)</label><input type="text" id="p-cnpj" placeholder="00.000.000/0001-00"></div>
+      <div class="form-group"><label>Área de Atuação</label><input type="text" id="p-area" placeholder="Ex: Vitória, Vila Velha, Serra"></div>
+      <div class="form-group"><label>Especialidades</label>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.5rem">
+          <label class="check-row"><input type="checkbox" id="esp-combustao"> Combustão</label>
+          <label class="check-row"><input type="checkbox" id="esp-eletrico"> Elétrico</label>
+          <label class="check-row"><input type="checkbox" id="esp-hibrido"> Híbrido</label>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="salvarPerfil()">Salvar Alterações</button>
+    </div>
+  </div>
+</main>
+<div class="modal-bg" id="modal-produto">
+  <div class="modal">
+    <h3>📦 Novo Produto</h3>
+    <div class="form-group"><label>Nome</label><input type="text" id="prod-nome" placeholder="Ex: Filtro de óleo Mann"></div>
+    <div class="form-group"><label>Descrição</label><textarea id="prod-desc" placeholder="Descreva o produto..."></textarea></div>
+    <div class="form-group"><label>Preço (R$)</label><input type="number" id="prod-preco" placeholder="0.00" step="0.01"></div>
+    <div class="form-group"><label>Estoque</label><input type="number" id="prod-estoque" placeholder="0"></div>
+    <div class="form-group"><label>Categoria</label>
+      <select id="prod-categoria">
+        <option value="pecas">Peças</option>
+        <option value="acessorios">Acessórios</option>
+        <option value="pneus">Pneus</option>
+        <option value="oleos">Óleos e Fluidos</option>
+        <option value="eletrico">Equipamentos Elétricos</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Compatibilidade</label>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.5rem">
+        <label class="check-row"><input type="checkbox" id="pc-combustao"> Combustão</label>
+        <label class="check-row"><input type="checkbox" id="pc-eletrico"> Elétrico</label>
+        <label class="check-row"><input type="checkbox" id="pc-hibrido"> Híbrido</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-produto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarProduto()">Publicar</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="modal-servico">
+  <div class="modal">
+    <h3>🔧 Novo Serviço</h3>
+    <div class="form-group"><label>Nome</label><input type="text" id="serv-nome" placeholder="Ex: Troca de óleo completa"></div>
+    <div class="form-group"><label>Descrição</label><textarea id="serv-desc" placeholder="Descreva o serviço..."></textarea></div>
+    <div class="form-group"><label>Preço (R$)</label><input type="number" id="serv-preco" placeholder="0.00" step="0.01"></div>
+    <div class="form-group"><label>Tempo Estimado</label><input type="text" id="serv-tempo" placeholder="Ex: 1h30min"></div>
+    <div class="form-group"><label>Categoria</label>
+      <select id="serv-categoria">
+        <option value="mecanica">Mecânica</option>
+        <option value="eletrica">Elétrica</option>
+        <option value="funilaria">Funilaria e Pintura</option>
+        <option value="revisao">Revisão</option>
+        <option value="recarga_ev">Recarga EV</option>
+        <option value="acessorios">Instalação de Acessórios</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Compatibilidade</label>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.5rem">
+        <label class="check-row"><input type="checkbox" id="sc-combustao"> Combustão</label>
+        <label class="check-row"><input type="checkbox" id="sc-eletrico"> Elétrico</label>
+        <label class="check-row"><input type="checkbox" id="sc-hibrido"> Híbrido</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-servico')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarServico()">Publicar</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
