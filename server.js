@@ -344,8 +344,8 @@ app.post('/api/v1/motorista/cadastrar', async (req, res) => {
       hash_auditoria: hash 
     }); 
   } catch (error) { 
-    console.error('Erro no cadastro:', error); 
-    res.status(500).json({ error: 'Erro interno do servidor', details: error.message }); 
+    console.error('[CADASTRO-ERRO]', error.message, error.details || ''); 
+    res.status(500).json({ error: 'Erro interno do servidor', detalhe: error.message }); 
   } 
 }); 
 
