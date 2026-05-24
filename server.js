@@ -524,6 +524,178 @@ app.get('/api/v1/debug/create-termo', async (req, res) => {
   }
 });
 
+// ─── ROTAS: PÁGINAS WEB SELLER ────────────────────────────────────────────────
+app.get('/cadastro', (req, res) => res.sendFile(path.join(__dirname, 'cadastro.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'login.html')));
+app.get('/seller', (req, res) => res.sendFile(path.join(__dirname, 'seller.html')));
+
+// ─── ROTAS: SELLER API ────────────────────────────────────────────────────────
+
+// Buscar termo atual para sellers
+app.get('/api/v1/seller/termos', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('smart_termos_web')
+      .select('*')
+      .order('criado_em', { ascending: false })
+      .limit(1)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch(e) { res.status(500).json({ error: 'Erro ao buscar termos' }); }
+});
+
+// Cadastrar seller
+app.post('/api/v1/seller/cadastrar', async (req, res) => {
+  try {
+    const { firebase_uid, nome, email, versao_termo, texto_termo } = req.body;
+    if (!firebase_uid || !nome || !email) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
+
+    const hash = calculateSHA256(`${texto_termo}${email}${new Date().toISOString()}`);
+
+    const { data: existing } = await supabase
+      .from('smart_sellers')
+      .select('id')
+      .eq('firebase_uid', firebase_uid)
+      .single();
+
+    if (existing) return res.json({ message: 'Seller já cadastrado', id: existing.id });
+
+    const { data, error } = await supabase
+      .from('smart_sellers')
+      .insert([{ firebase_uid, nome, email, versao_termo_aceito: versao_termo, hash_termo: hash }])
+      .select().single();
+
+    if (error) throw error;
+    broadcast({ type: 'novo_seller', seller: data });
+    res.json({ message: 'Seller cadastrado com sucesso', data });
+  } catch(e) { res.status(500).json({ error: 'Erro ao cadastrar seller' }); }
+});
+
+// Verificar se termo precisa ser atualizado
+app.get('/api/v1/seller/verificar-termo', async (req, res) => {
+  try {
+    const { uid } = req.query;
+    const { data: seller } = await supabase.from('smart_sellers').select('versao_termo_aceito').eq('firebase_uid', uid).single();
+    const { data: termo } = await supabase.from('smart_termos_web').select('*').order('criado_em', { ascending: false }).limit(1).single();
+    if (!seller || !termo) return res.json({ precisa_atualizar: false });
+    const precisa = seller.versao_termo_aceito !== termo.versao;
+    res.json({ precisa_atualizar: precisa, versao: termo.versao, texto: termo.texto });
+  } catch(e) { res.json({ precisa_atualizar: false }); }
+});
+
+// Atualizar termo aceito
+app.post('/api/v1/seller/atualizar-termo', async (req, res) => {
+  try {
+    const { firebase_uid, versao_termo, texto_termo } = req.body;
+    const hash = calculateSHA256(`${texto_termo}${firebase_uid}${new Date().toISOString()}`);
+    await supabase.from('smart_sellers').update({ versao_termo_aceito: versao_termo, hash_termo: hash }).eq('firebase_uid', firebase_uid);
+    res.json({ message: 'Termo atualizado' });
+  } catch(e) { res.status(500).json({ error: 'Erro ao atualizar termo' }); }
+});
+
+// Buscar seller por uid
+async function getSellerByUid(uid) {
+  const { data } = await supabase.from('smart_sellers').select('*').eq('firebase_uid', uid).single();
+  return data;
+}
+
+// Produtos
+app.get('/api/v1/seller/produtos', async (req, res) => {
+  try {
+    const seller = await getSellerByUid(req.query.uid);
+    if (!seller) return res.json([]);
+    const { data } = await supabase.from('smart_produtos').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false });
+    res.json(data || []);
+  } catch(e) { res.json([]); }
+});
+
+app.post('/api/v1/seller/produto', async (req, res) => {
+  try {
+    const { uid, nome, descricao, preco, estoque, categoria, compatibilidade } = req.body;
+    const seller = await getSellerByUid(uid);
+    if (!seller) return res.status(404).json({ error: 'Seller não encontrado' });
+    const { data, error } = await supabase.from('smart_produtos').insert([{ seller_id: seller.id, nome, descricao, preco, estoque, categoria, compatibilidade }]).select().single();
+    if (error) throw error;
+    res.json({ message: 'Produto criado', data });
+  } catch(e) { res.status(500).json({ error: 'Erro ao criar produto' }); }
+});
+
+app.patch('/api/v1/seller/produto/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('smart_produtos').update(req.body).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json({ message: 'Produto atualizado', data });
+  } catch(e) { res.status(500).json({ error: 'Erro ao atualizar produto' }); }
+});
+
+// Serviços
+app.get('/api/v1/seller/servicos', async (req, res) => {
+  try {
+    const seller = await getSellerByUid(req.query.uid);
+    if (!seller) return res.json([]);
+    const { data } = await supabase.from('smart_servicos').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false });
+    res.json(data || []);
+  } catch(e) { res.json([]); }
+});
+
+app.post('/api/v1/seller/servico', async (req, res) => {
+  try {
+    const { uid, nome, descricao, preco, tempo_estimado, categoria, compatibilidade } = req.body;
+    const seller = await getSellerByUid(uid);
+    if (!seller) return res.status(404).json({ error: 'Seller não encontrado' });
+    const { data, error } = await supabase.from('smart_servicos').insert([{ seller_id: seller.id, nome, descricao, preco, tempo_estimado, categoria, compatibilidade }]).select().single();
+    if (error) throw error;
+    res.json({ message: 'Serviço criado', data });
+  } catch(e) { res.status(500).json({ error: 'Erro ao criar serviço' }); }
+});
+
+app.patch('/api/v1/seller/servico/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('smart_servicos').update(req.body).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json({ message: 'Serviço atualizado', data });
+  } catch(e) { res.status(500).json({ error: 'Erro ao atualizar serviço' }); }
+});
+
+// Pedidos
+app.get('/api/v1/seller/pedidos', async (req, res) => {
+  try {
+    const seller = await getSellerByUid(req.query.uid);
+    if (!seller) return res.json([]);
+    const { data } = await supabase.from('smart_pedidos').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false });
+    res.json(data || []);
+  } catch(e) { res.json([]); }
+});
+
+app.patch('/api/v1/seller/pedido/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('smart_pedidos').update(req.body).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json({ message: 'Pedido atualizado', data });
+  } catch(e) { res.status(500).json({ error: 'Erro ao atualizar pedido' }); }
+});
+
+// Avaliações
+app.get('/api/v1/seller/avaliacoes', async (req, res) => {
+  try {
+    const seller = await getSellerByUid(req.query.uid);
+    if (!seller) return res.json([]);
+    const { data } = await supabase.from('smart_avaliacoes').select('*').eq('seller_id', seller.id).order('created_at', { ascending: false });
+    res.json(data || []);
+  } catch(e) { res.json([]); }
+});
+
+// Perfil do seller
+app.patch('/api/v1/seller/perfil', async (req, res) => {
+  try {
+    const { uid, ...campos } = req.body;
+    const { data, error } = await supabase.from('smart_sellers').update(campos).eq('firebase_uid', uid).select().single();
+    if (error) throw error;
+    res.json({ message: 'Perfil atualizado', data });
+  } catch(e) { res.status(500).json({ error: 'Erro ao atualizar perfil' }); }
+});
+
 // ─── START ──────────────────────────────────────────────────────────────────── 
 server.listen(PORT, () => { 
   console.log(`\n🚀 SmartMob Server rodando em http://localhost:${PORT}`); 
