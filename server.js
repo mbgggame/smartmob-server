@@ -538,11 +538,19 @@ app.get('/api/v1/seller/termos', async (req, res) => {
       .from('smart_termos_web')
       .select('*')
       .order('criado_em', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
+
+    console.log('[TERMOS-WEB] data:', JSON.stringify(data), 'error:', error);
+
     if (error) throw error;
-    res.json(data);
-  } catch(e) { res.status(500).json({ error: 'Erro ao buscar termos' }); }
+    if (!data || data.length === 0) {
+      return res.json({ versao: '1.0', texto: 'Termos não encontrados.' });
+    }
+    res.json(data[0]);
+  } catch(e) {
+    console.error('[TERMOS-WEB] Erro:', e);
+    res.status(500).json({ error: 'Erro ao buscar termos', detalhe: e.message });
+  }
 });
 
 // Cadastrar seller
