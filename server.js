@@ -731,6 +731,276 @@ app.patch('/api/v1/seller/perfil', async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Erro ao atualizar perfil' }); }
 });
 
+// ─── ALGORITMO DE INTELIGÊNCIA DO MOTORISTA ───────────────────────────────────
+
+// Réguas de desgaste por tipo de motor (em km)
+const REGUAS_DESGASTE = {
+  combustao: {
+    oleo: 5000,
+    freios: 20000,
+    pneus: 40000,
+    revisao_geral: 10000
+  },
+  eletrico: {
+    oleo: null,
+    freios: 30000,
+    pneus: 40000,
+    revisao_geral: 15000
+  },
+  hibrido: {
+    oleo: 7500,
+    freios: 25000,
+    pneus: 40000,
+    revisao_geral: 12000
+  }
+};
+
+async function calcularScoreDesgaste(kmDesdeRevisao, limite) {
+  if (!limite) return 0;
+  return Math.min(100, Math.round((kmDesdeRevisao / limite) * 100));
+}
+
+async function rodarAlgoritmoMotorista() {
+  console.log('[ALGORITMO] Iniciando análise dos motoristas...');
+  try {
+    const { data: motoristas } = await supabase
+      .from('smart_motoristas_cadastro')
+      .select('*');
+
+    if (!motoristas || motoristas.length === 0) {
+      console.log('[ALGORITMO] Nenhum motorista encontrado.');
+      return;
+    }
+
+    for (const motorista of motoristas) {
+      try {
+        const agora = new Date();
+        const trintaDiasAtras = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const seteDiasAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        // Buscar corridas dos últimos 30 dias
+        const { data: corridas } = await supabase
+          .from('smartmob_historico_precos')
+          .select('*')
+          .eq('motorista_id', motorista.id)
+          .gte('created_at', trintaDiasAtras.toISOString());
+
+        const totalCorridas = corridas?.length || 0;
+        const corridasAceitas = corridas?.filter(c => c.aceita === true).length || 0;
+
+        // KM médio por dia
+        const kmTotal = corridas?.reduce((acc, c) => acc + (parseFloat(c.km) || 0), 0) || 0;
+        const kmMedioDia = Math.round((kmTotal / 30) * 10) / 10;
+
+        // Valor médio das corridas
+        const valorMedio = totalCorridas > 0
+          ? Math.round((corridas.reduce((acc, c) => acc + (parseFloat(c.valor_corrida) || 0), 0) / totalCorridas) * 100) / 100
+          : 0;
+
+        // Horário de pico
+        const horarios = corridas?.map(c => new Date(c.created_at).getHours()) || [];
+        const contagemHorarios = horarios.reduce((acc, h) => {
+          acc[h] = (acc[h] || 0) + 1;
+          return acc;
+        }, {});
+        const horarioPico = Object.entries(contagemHorarios)
+          .sort((a, b) => b[1] - a[1])[0]?.[0];
+        const horarioPicoStr = horarioPico ? `${horarioPico}h-${parseInt(horarioPico) + 1}h` : null;
+
+        // Bairro mais frequente
+        const bairros = corridas?.map(c => c.bairro_origem).filter(Boolean) || [];
+        const contagemBairros = bairros.reduce((acc, b) => {
+          acc[b] = (acc[b] || 0) + 1;
+          return acc;
+        }, {});
+        const bairroFrequente = Object.entries(contagemBairros)
+          .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+        // Dias ativos na última semana
+        const { data: corridasSemana } = await supabase
+          .from('smartmob_historico_precos')
+          .select('created_at')
+          .eq('motorista_id', motorista.id)
+          .gte('created_at', seteDiasAtras.toISOString());
+
+        const diasUnicos = new Set(
+          corridasSemana?.map(c => new Date(c.created_at).toDateString()) || []
+        );
+        const diasAtivos = diasUnicos.size;
+
+        // Calcular KM desde última revisão
+        const odoAtual = motorista.odometro_atual || 0;
+        const odoRevisao = motorista.odometro_atual || 0;
+        const kmDesdeRevisao = kmTotal;
+
+        // Score de desgaste
+        const tipoMotor = motorista.tipo_motor || 'combustao';
+        const reguas = REGUAS_DESGASTE[tipoMotor] || REGUAS_DESGASTE.combustao;
+
+        const scoreOleo = await calcularScoreDesgaste(kmDesdeRevisao, reguas.oleo);
+        const scoreFreios = await calcularScoreDesgaste(kmDesdeRevisao, reguas.freios);
+        const scorePneus = await calcularScoreDesgaste(kmDesdeRevisao, reguas.pneus);
+        const scoreRevisao = await calcularScoreDesgaste(kmDesdeRevisao, reguas.revisao_geral);
+        const scoreGeral = Math.max(scoreOleo, scoreFreios, scorePneus, scoreRevisao);
+
+        // Previsão próxima revisão baseada no km médio diário
+        let previsaoRevisao = null;
+        if (kmMedioDia > 0 && reguas.revisao_geral) {
+          const kmRestante = reguas.revisao_geral - kmDesdeRevisao;
+          if (kmRestante > 0) {
+            const diasRestantes = Math.round(kmRestante / kmMedioDia);
+            previsaoRevisao = new Date(agora.getTime() + diasRestantes * 24 * 60 * 60 * 1000)
+              .toISOString().split('T')[0];
+          }
+        }
+
+        // Previsão troca de óleo
+        let previsaoOleo = null;
+        if (kmMedioDia > 0 && reguas.oleo) {
+          const kmRestanteOleo = reguas.oleo - kmDesdeRevisao;
+          if (kmRestanteOleo > 0) {
+            const diasRestantesOleo = Math.round(kmRestanteOleo / kmMedioDia);
+            previsaoOleo = new Date(agora.getTime() + diasRestantesOleo * 24 * 60 * 60 * 1000)
+              .toISOString().split('T')[0];
+          }
+        }
+
+        // Salvar perfil de inteligência
+        await supabase
+          .from('smart_perfil_inteligencia')
+          .upsert({
+            motorista_id: motorista.id,
+            km_total_acumulado: kmTotal,
+            km_medio_dia: kmMedioDia,
+            dias_ativos_semana: diasAtivos,
+            horario_pico: horarioPicoStr,
+            bairro_frequente: bairroFrequente,
+            valor_medio_corrida: valorMedio,
+            total_corridas: totalCorridas,
+            corridas_aceitas: corridasAceitas,
+            corridas_recusadas: totalCorridas - corridasAceitas,
+            score_desgaste_oleo: scoreOleo,
+            score_desgaste_freios: scoreFreios,
+            score_desgaste_pneus: scorePneus,
+            score_desgaste_geral: scoreGeral,
+            km_desde_ultima_revisao: kmDesdeRevisao,
+            previsao_proxima_revisao: previsaoRevisao,
+            previsao_troca_oleo: previsaoOleo,
+            ultima_analise: new Date().toISOString()
+          }, { onConflict: 'motorista_id' });
+
+        // Gerar notificações se necessário
+        if (scoreGeral >= 80) {
+          await gerarNotificacaoDesgaste(motorista, scoreOleo, scoreFreios, scorePneus, scoreRevisao, reguas);
+        }
+
+        console.log(`[ALGORITMO] Motorista ${motorista.id} — Score: ${scoreGeral}% — KM/dia: ${kmMedioDia}`);
+
+      } catch(e) {
+        console.error(`[ALGORITMO-ERRO] Motorista ${motorista.id}:`, e.message);
+      }
+    }
+
+    console.log('[ALGORITMO] Análise concluída.');
+  } catch(e) {
+    console.error('[ALGORITMO-ERRO-GERAL]', e.message);
+  }
+}
+
+async function gerarNotificacaoDesgaste(motorista, scoreOleo, scoreFreios, scorePneus, scoreRevisao, reguas) {
+  try {
+    let tipo = '';
+    let titulo = '';
+    let mensagem = '';
+
+    if (reguas.oleo && scoreOleo >= 80) {
+      tipo = 'troca_oleo';
+      titulo = '⚠️ Troca de óleo próxima';
+      mensagem = `Seu veículo está com ${scoreOleo}% do limite para troca de óleo. Agende agora!`;
+    } else if (scoreFreios >= 80) {
+      tipo = 'revisao_freios';
+      titulo = '⚠️ Revisão de freios recomendada';
+      mensagem = `Seus freios estão com ${scoreFreios}% do limite. Segurança em primeiro lugar!`;
+    } else if (scorePneus >= 80) {
+      tipo = 'troca_pneus';
+      titulo = '⚠️ Verifique seus pneus';
+      mensagem = `Seus pneus estão com ${scorePneus}% do limite recomendado.`;
+    } else if (scoreRevisao >= 80) {
+      tipo = 'revisao_geral';
+      titulo = '🔧 Revisão geral recomendada';
+      mensagem = `Seu veículo precisa de revisão geral. Cuide bem do seu carro!`;
+    }
+
+    if (!tipo) return;
+
+    // Verificar se já existe notificação do mesmo tipo não visualizada
+    const { data: existente } = await supabase
+      .from('smart_notificacoes')
+      .select('id')
+      .eq('motorista_id', motorista.id)
+      .eq('tipo', tipo)
+      .eq('visualizada', false)
+      .limit(1);
+
+    if (existente && existente.length > 0) return;
+
+    await supabase.from('smart_notificacoes').insert([{
+      motorista_id: motorista.id,
+      tipo,
+      titulo,
+      mensagem,
+      enviada: false,
+      visualizada: false,
+      clicada: false,
+      convertida: false
+    }]);
+
+    console.log(`[NOTIFICACAO] Gerada para motorista ${motorista.id}: ${tipo}`);
+  } catch(e) {
+    console.error('[NOTIFICACAO-ERRO]', e.message);
+  }
+}
+
+// Rodar algoritmo a cada 24h (e imediatamente ao iniciar)
+rodarAlgoritmoMotorista();
+setInterval(rodarAlgoritmoMotorista, 24 * 60 * 60 * 1000);
+
+// Rota para forçar análise manual (admin)
+app.post('/api/v1/admin/rodar-algoritmo', async (req, res) => {
+  rodarAlgoritmoMotorista();
+  res.json({ message: 'Algoritmo iniciado!' });
+});
+
+// Rota para ver perfil de inteligência do motorista
+app.get('/api/v1/motorista/perfil-inteligencia/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('smart_perfil_inteligencia')
+      .select('*')
+      .eq('motorista_id', req.params.id)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch(e) {
+    res.status(500).json({ error: 'Erro ao buscar perfil' });
+  }
+});
+
+// Rota para ver notificações do motorista
+app.get('/api/v1/motorista/notificacoes/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('smart_notificacoes')
+      .select('*')
+      .eq('motorista_id', req.params.id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch(e) {
+    res.status(500).json({ error: 'Erro ao buscar notificações' });
+  }
+});
+
 // ─── START ──────────────────────────────────────────────────────────────────── 
 server.listen(PORT, () => { 
   console.log(`\n🚀 SmartMob Server rodando em http://localhost:${PORT}`); 
