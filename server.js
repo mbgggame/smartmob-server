@@ -246,7 +246,30 @@ app.post('/api/v1/salvar-corrida', async (req, res) => {
       }]) 
       .select(); 
 
-    if (error) throw error; 
+    if (error) throw error;
+
+    // Atualizar ODO do motorista automaticamente
+    if (motorista_id && km) {
+      try {
+        const { data: motoristaAtual } = await supabase
+          .from('smart_motoristas_cadastro')
+          .select('odometro_atual')
+          .eq('id', motorista_id)
+          .single();
+
+        if (motoristaAtual) {
+          const novoOdo = (motoristaAtual.odometro_atual || 0) + parseFloat(km);
+          await supabase
+            .from('smart_motoristas_cadastro')
+            .update({ odometro_atual: Math.round(novoOdo) })
+            .eq('id', motorista_id);
+
+          console.log(`[ODO] Motorista ${motorista_id}: ${motoristaAtual.odometro_atual} → ${Math.round(novoOdo)} km`);
+        }
+      } catch(e) {
+        console.error('[ODO-ERRO]', e.message);
+      }
+    }
 
     broadcast({ type: 'nova_corrida', corrida: data[0] }); 
 
