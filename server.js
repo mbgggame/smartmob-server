@@ -1030,6 +1030,69 @@ app.post('/api/v1/enviar-alerta', async (req, res) => {
   }
 });
 
+app.get('/api/v1/motorista/relatorio', async (req, res) => {
+  try {
+    const { motorista_id, dias, inicio, fim } = req.query;
+    if (!motorista_id) return res.status(400).json({ error: 'motorista_id obrigatório' });
+
+    let startDate, endDate;
+    const now = new Date();
+
+    if (dias) {
+      startDate = new Date(now.getTime() - parseInt(dias) * 24 * 60 * 60 * 1000);
+      endDate = now;
+    } else if (inicio && fim) {
+      startDate = new Date(inicio);
+      endDate = new Date(fim);
+      endDate.setHours(23, 59, 59);
+    } else {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      endDate = now;
+    }
+
+    const { data: corridas } = await supabase
+      .from('smartmob_historico_precos')
+      .select('*')
+      .eq('motorista_id', motorista_id)
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
+      .order('created_at', { ascending: true });
+
+    const lista = corridas || [];
+    const totalCorridas = lista.length;
+    const fatBruto = lista.reduce((s, c) => s + (parseFloat(c.valor_corrida) || 0), 0);
+    const kmRodados = lista.reduce((s, c) => s + (parseFloat(c.km) || 0), 0);
+    const lucroLiquido = lista.reduce((s, c) => s + (parseFloat(c.ganho_liquido) || 0), 0);
+    const custos = fatBruto - lucroLiquido;
+
+    // Agrupar por dia
+    const porDia = {};
+    lista.forEach(c => {
+      const dia = new Date(c.created_at);
+      const label = dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      if (!porDia[label]) porDia[label] = { label, lucro: 0, corridas: 0 };
+      porDia[label].lucro += parseFloat(c.ganho_liquido) || 0;
+      porDia[label].corridas += 1;
+    });
+
+    const porDiaArr = Object.values(porDia);
+    const melhorDia = porDiaArr.sort((a, b) => b.lucro - a.lucro)[0];
+
+    res.json({
+      total_corridas: totalCorridas,
+      faturamento_bruto: Math.round(fatBruto * 100) / 100,
+      custos: Math.round(custos * 100) / 100,
+      lucro_liquido: Math.round(lucroLiquido * 100) / 100,
+      km_rodados: Math.round(kmRodados * 10) / 10,
+      melhor_dia: melhorDia ? `${melhorDia.label} — R$ ${melhorDia.lucro.toFixed(2)}` : '-',
+      por_dia: porDiaArr.sort((a, b) => a.label.localeCompare(b.label))
+    });
+  } catch(e) {
+    console.error('[RELATORIO-ERRO]', e.message);
+    res.status(500).json({ error: 'Erro ao gerar relatório' });
+  }
+});
+
 // ─── START ──────────────────────────────────────────────────────────────────── 
 server.listen(PORT, () => { 
   console.log(`\n🚀 SmartMob Server rodando em http://localhost:${PORT}`); 
