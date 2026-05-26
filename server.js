@@ -1001,6 +1001,35 @@ app.get('/api/v1/motorista/notificacoes/:id', async (req, res) => {
   }
 });
 
+app.post('/api/v1/enviar-alerta', async (req, res) => {
+  try {
+    const { tipo_alerta, motorista_id, lat, lng } = req.body;
+    if (!tipo_alerta || !motorista_id) {
+      return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
+    }
+    const { data, error } = await supabase
+      .from('smart_alertas_comunidade')
+      .insert([{
+        motorista_id,
+        tipo_alerta,
+        lat: lat || null,
+        lng: lng || null,
+        created_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+    if (error) throw error;
+    // Check if broadcast exists before calling
+    if (typeof broadcast === 'function') {
+      broadcast({ type: 'novo_alerta_comunidade', alerta: data });
+    }
+    res.json({ message: 'Alerta enviado com sucesso', data });
+  } catch(e) {
+    console.error('[ALERTA-ERRO]', e.message);
+    res.status(500).json({ error: 'Erro ao enviar alerta' });
+  }
+});
+
 // ─── START ──────────────────────────────────────────────────────────────────── 
 server.listen(PORT, () => { 
   console.log(`\n🚀 SmartMob Server rodando em http://localhost:${PORT}`); 
