@@ -1093,6 +1093,9 @@ app.get('/api/v1/motorista/relatorio', async (req, res) => {
   }
 });
 
+// ─── ROTA: PING ───────────────────────────────────────────────────────────────
+app.get('/api/v1/ping', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+
 // ─── START ──────────────────────────────────────────────────────────────────── 
 server.listen(PORT, () => { 
   console.log(`\n🚀 SmartMob Server rodando em http://localhost:${PORT}`); 
